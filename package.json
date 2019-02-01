@@ -1,0 +1,13 @@
+{
+  "name": "minecraft-version-packager",
+  "version": "0.0.1",
+  "description": "",
+  "main": "src/index.js",
+  "scripts": {},
+  "author": "dev@seniorcote.com",
+  "license": "MIT",
+  "dependencies": {
+    "commander": "^2.19.0",
+    "progress": "^2.0.3"
+  }
+}
