@@ -8,8 +8,7 @@ const createPackage = require('./createPackage');
 app.version('0.0.1');
 
 app
-    .command('package <version> <dest>')
-    .action((version, dest) => createPackage(version, dest))
-    .description('Создает архив с выбранной версией.');
+    .command('package <version>')
+    .action(version => createPackage(version))
 
 app.parse(process.argv);
