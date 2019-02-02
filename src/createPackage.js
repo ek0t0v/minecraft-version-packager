@@ -3,84 +3,14 @@
 const fs = require('fs');
 const _ = require('lodash');
 const fetch = require('node-fetch');
-const request = require('request');
 const tar = require('tar');
-const ProgressBar = require('progress');
+const downloadClient = require('./downloadClient');
+const download = require('./download');
+const getNativesByVersionInfo = require('./getNativesByVersionInfo');
+const getLibrariesByVersionInfo = require('./getLibrariesByVersionInfo');
 const { createTmpDir, removeTmpDir } = require('./util/tmp');
 const VERSIONS_API_URL = 'https://launchermeta.mojang.com/mc/game/version_manifest.json';
 const ASSETS_DOWNLOAD_URL = 'http://resources.download.minecraft.net';
-
-function downloadClient(data, version) {
-    return new Promise((resolve, reject) => {
-        const stream = fs.createWriteStream(`./output/tmp/${version}.jar`);
-        const progressBar = new ProgressBar(`${version}.jar [:bar] :percent`, {
-            total: data.size,
-        });
-
-        request.get(data.url)
-            .on('data', chunk => {
-                progressBar.tick(chunk.length);
-            })
-            .on('error', e => reject())
-            .on('end', () => resolve())
-            .pipe(stream);
-    });
-}
-
-function getNativesByVersionInfo(libraries, platform) {
-    let result = [];
-
-    libraries.forEach(lib => {
-        if (lib.hasOwnProperty('natives') && lib.natives.hasOwnProperty(platform)) {
-            result.push(_.get(lib, `downloads.classifiers.${lib.natives[platform]}`));
-        }
-    });
-
-    return result;
-}
-
-function getLibrariesByVersionInfo(libraries, platform) {
-    let result = [];
-
-    libraries.forEach(lib => {
-        if (lib.hasOwnProperty('natives')) {
-            return;
-        }
-
-        if (!lib.hasOwnProperty('rules')) {
-            result.push(lib.downloads.artifact);
-
-            return;
-        }
-
-        lib.rules.forEach(rule => {
-            if (rule.action === 'allow' && rule.os.name === platform) {
-                result.push(lib.downloads.artifact);
-            }
-        });
-    });
-
-    return result;
-}
-
-function download(url, dest, size) {
-    return new Promise((resolve, reject) => {
-        const filename = url.split('/').pop();
-        const stream = fs.createWriteStream(`${dest}/${filename}`);
-        const progressBar = new ProgressBar(`${filename} [:bar] :percent`, {
-            total: size,
-        });
-
-        request
-            .get(url)
-            .on('data', chunk => {
-                progressBar.tick(chunk.length);
-            })
-            .on('error', () => reject())
-            .on('end', () => resolve())
-            .pipe(stream);
-    });
-}
 
 module.exports = async function createPackage(version, platform) {
     if (['linux', 'windows', 'osx'].indexOf(platform) === -1) {
