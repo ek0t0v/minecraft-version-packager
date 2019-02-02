@@ -8,7 +8,8 @@ const createPackage = require('./createPackage');
 app.version('0.0.1');
 
 app
-    .command('package <version>')
-    .action(version => createPackage(version))
+    .command('package <version> <platform>')
+    .action((version, platform) => createPackage(version, platform))
+;
 
 app.parse(process.argv);
