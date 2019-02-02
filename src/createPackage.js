@@ -9,8 +9,6 @@ const download = require('./download');
 const getNativesByVersionInfo = require('./getNativesByVersionInfo');
 const getLibrariesByVersionInfo = require('./getLibrariesByVersionInfo');
 const { createTmpDir, removeTmpDir } = require('./util/tmp');
-const VERSIONS_API_URL = 'https://launchermeta.mojang.com/mc/game/version_manifest.json';
-const ASSETS_DOWNLOAD_URL = 'http://resources.download.minecraft.net';
 
 module.exports = async function createPackage(version, platform) {
     if (['linux', 'windows', 'osx'].indexOf(platform) === -1) {
@@ -19,7 +17,7 @@ module.exports = async function createPackage(version, platform) {
     }
 
     console.log('Load version data...');
-    let response = await fetch(VERSIONS_API_URL);
+    let response = await fetch(global.api.versionsInfo);
     let versions = await response.json();
     let versionData = Object.values(versions.versions).filter(item => item.id === version)[0];
 
@@ -33,13 +31,13 @@ module.exports = async function createPackage(version, platform) {
 
     createTmpDir();
 
-    fs.writeFileSync(`./output/tmp/${version}.json`, JSON.stringify(versionData));
+    fs.writeFileSync(`${global.package.tmpPath}/${version}.json`, JSON.stringify(versionData));
 
     console.log('Download client...');
     await downloadClient(versionData.downloads.client, version);
 
-    if (!fs.existsSync('./output/tmp/libraries')) {
-        fs.mkdirSync('./output/tmp/libraries');
+    if (!fs.existsSync(`${global.package.tmpPath}/${global.package.librariesDir}`)) {
+        fs.mkdirSync(`${global.package.tmpPath}/${global.package.librariesDir}`);
     }
 
     console.log('Download libraries...');
@@ -47,7 +45,7 @@ module.exports = async function createPackage(version, platform) {
         const libs = getLibrariesByVersionInfo(versionData.libraries, platform);
 
         for (const lib of libs) {
-            await download(lib.url, './output/tmp/libraries', lib.size);
+            await download(lib.url, `${global.package.tmpPath}/${global.package.librariesDir}`, lib.size);
         }
 
         resolve();
@@ -58,14 +56,14 @@ module.exports = async function createPackage(version, platform) {
         const libs = getNativesByVersionInfo(versionData.libraries, platform);
 
         for (const lib of libs) {
-            await download(lib.url, './output/tmp/libraries', lib.size);
+            await download(lib.url, `${global.package.tmpPath}/${global.package.librariesDir}`, lib.size);
         }
 
         resolve();
     });
 
-    if (!fs.existsSync('./output/tmp/assets')) {
-        fs.mkdirSync('./output/tmp/assets');
+    if (!fs.existsSync(`${global.package.tmpPath}/${global.package.assetsDir}`)) {
+        fs.mkdirSync(`${global.package.tmpPath}/${global.package.assetsDir}`);
     }
 
     console.log('Download assets...');
@@ -76,8 +74,8 @@ module.exports = async function createPackage(version, platform) {
 
         for (const asset of assets) {
             let assetDir = asset[1].hash.substring(0, 2);
-            let destDir = `./output/tmp/assets/${assetDir}`;
-            let downloadUrl = `${ASSETS_DOWNLOAD_URL}/${assetDir}/${asset[1].hash}`;
+            let destDir = `${global.package.tmpPath}/${global.package.assetsDir}/${assetDir}`;
+            let downloadUrl = `${global.api.assetsDownloadBaseUrl}/${assetDir}/${asset[1].hash}`;
 
             if (!fs.existsSync(destDir)) {
                 fs.mkdirSync(destDir);
@@ -89,17 +87,21 @@ module.exports = async function createPackage(version, platform) {
         resolve();
     });
 
+    // todo: Создание папки natives и распаковка нужных либ туда (lwjgl).
+
+    // todo: Построение команды для запуска игры для целевой ОС.
+    
     console.log(`Packaging ${version}...`);
     tar.c({
         gzip: true,
         sync: true,
-        file: `./output/${version}.tar.gz`,
-        cwd: './output/tmp/',
+        file: `${global.package.outputPath}/${version}-${platform}.tar.gz`,
+        cwd: global.package.tmpPath,
     }, [
         `${version}.jar`,
         `${version}.json`,
-        'libraries',
-        'assets',
+        global.package.librariesDir,
+        global.package.assetsDir,
     ]);
 
     removeTmpDir();

@@ -4,11 +4,11 @@ const fs = require('fs');
 const rimraf = require('rimraf');
 
 module.exports.createTmpDir = function () {
-    if (!fs.existsSync('./output/tmp')) {
-        fs.mkdirSync('./output/tmp');
+    if (!fs.existsSync(global.package.tmpPath)) {
+        fs.mkdirSync(global.package.tmpPath);
     }
 };
 
 module.exports.removeTmpDir = function () {
-    rimraf.sync('./output/tmp');
+    rimraf.sync(global.package.tmpPath);
 };
