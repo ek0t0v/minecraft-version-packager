@@ -83,7 +83,7 @@ function download(url, dest, size) {
 }
 
 module.exports = async function createPackage(version, platform) {
-    if (['linux', 'osx', 'windows'].indexOf(platform) === -1) {
+    if (['linux', 'windows', 'osx'].indexOf(platform) === -1) {
         console.error('Invalid platform.');
         process.exit(1);
     }
