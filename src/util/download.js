@@ -5,10 +5,11 @@ const fs = require('fs');
 const request = require('request');
 const ProgressBar = require('progress');
 
-module.exports = function downloadFile(url, dest, size, visibleName) {
+module.exports = function download(url, dest, size, visibleName) {
     return new Promise((resolve, reject) => {
-        const filename = visibleName ? visibleName : _.last(url.split('/'));
-        const stream = fs.createWriteStream(`${dest}/${filename}`);
+        const originalFilename = _.last(url.split('/'));
+        const filename = visibleName ? visibleName : originalFilename;
+        const stream = fs.createWriteStream(`${dest}/${originalFilename}`);
         const progressBar = new ProgressBar(`${filename} [:bar] :percent`, {
             total: size,
         });

@@ -4,11 +4,10 @@ const fs = require('fs');
 const _ = require('lodash');
 const fetch = require('node-fetch');
 const tar = require('tar');
-const downloadClient = require('./downloadClient');
-const downloadFile = require('./downloadFile');
 const getNativesByVersionInfo = require('./getNativesByVersionInfo');
 const getLibrariesByVersionInfo = require('./getLibrariesByVersionInfo');
 const unpackNatives = require('./unpackNatives');
+const download = require('../util/download');
 const { createTmpDir, removeTmpDir } = require('../util/tmp');
 const constants = require('../constants');
 
@@ -36,7 +35,16 @@ module.exports = async function create(version, platform) {
     fs.writeFileSync(`${constants.package.tmpPath}/${version}.json`, JSON.stringify(versionData));
 
     console.log('Download client...');
-    await downloadClient(versionData.downloads.client, version);
+    await download(
+        versionData.downloads.client.url,
+        `${constants.package.tmpPath}`,
+        versionData.downloads.client.size,
+        `${versionData.id}.jar`,
+    );
+    fs.renameSync(
+        `${constants.package.tmpPath}/${_.last(clientInfo.url.split('/'))}`,
+        `${constants.package.tmpPath}/${versionData.id}.jar`,
+    );
 
     if (!fs.existsSync(`${constants.package.tmpPath}/${constants.package.librariesDir}`)) {
         fs.mkdirSync(`${constants.package.tmpPath}/${constants.package.librariesDir}`);
@@ -47,7 +55,7 @@ module.exports = async function create(version, platform) {
         const libs = getLibrariesByVersionInfo(versionData.libraries, platform);
 
         for (const lib of libs) {
-            await downloadFile(lib.url, `${constants.package.tmpPath}/${constants.package.librariesDir}`, lib.size);
+            await download(lib.url, `${constants.package.tmpPath}/${constants.package.librariesDir}`, lib.size);
         }
 
         resolve();
@@ -58,7 +66,7 @@ module.exports = async function create(version, platform) {
         const libs = getNativesByVersionInfo(versionData.libraries, platform);
 
         for (const lib of libs) {
-            await downloadFile(lib.url, `${constants.package.tmpPath}/${constants.package.librariesDir}`, lib.size);
+            await download(lib.url, `${constants.package.tmpPath}/${constants.package.librariesDir}`, lib.size);
         }
 
         if (!fs.existsSync(`${constants.package.tmpPath}/${constants.package.nativesDir}`)) {
@@ -89,7 +97,7 @@ module.exports = async function create(version, platform) {
                 fs.mkdirSync(destDir);
             }
 
-            await downloadFile(downloadUrl, destDir, asset[1].size, _.last(asset[0].split('/')));
+            await download(downloadUrl, destDir, asset[1].size, _.last(asset[0].split('/')));
         }
 
         resolve();
