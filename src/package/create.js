@@ -32,18 +32,21 @@ module.exports = async function create(version, platform) {
 
     createTmpDir();
 
-    fs.writeFileSync(`${constants.package.tmpPath}/${version}.json`, JSON.stringify(versionData));
+    fs.writeFileSync(
+        `${constants.package.tmpPath}/${version}.json`,
+        JSON.stringify(versionData, null, '    '),
+    );
 
     console.log('Download client...');
     await download(
         versionData.downloads.client.url,
         `${constants.package.tmpPath}`,
         versionData.downloads.client.size,
-        `${versionData.id}.jar`,
+        `${version}.jar`,
     );
     fs.renameSync(
-        `${constants.package.tmpPath}/${_.last(clientInfo.url.split('/'))}`,
-        `${constants.package.tmpPath}/${versionData.id}.jar`,
+        `${constants.package.tmpPath}/${_.last(versionData.downloads.client.url.split('/'))}`,
+        `${constants.package.tmpPath}/${version}.jar`,
     );
 
     if (!fs.existsSync(`${constants.package.tmpPath}/${constants.package.librariesDir}`)) {
@@ -80,17 +83,25 @@ module.exports = async function create(version, platform) {
 
     if (!fs.existsSync(`${constants.package.tmpPath}/${constants.package.assetsDir}`)) {
         fs.mkdirSync(`${constants.package.tmpPath}/${constants.package.assetsDir}`);
+        fs.mkdirSync(`${constants.package.tmpPath}/${constants.package.assetsDir}/indexes`);
+        fs.mkdirSync(`${constants.package.tmpPath}/${constants.package.assetsDir}/objects`);
     }
 
     console.log('Download assets...');
     await new Promise(async resolve => {
         response = await fetch(versionData.assetIndex.url);
-        let assets = await response.json();
-        assets = Object.entries(assets.objects);
+        response = await response.json();
+
+        fs.writeFileSync(
+            `${constants.package.tmpPath}/${constants.package.assetsDir}/indexes/${versionData.assetIndex.id}.json`,
+            JSON.stringify(response, null, '    '),
+        );
+
+        const assets = Object.entries(response.objects);
 
         for (const asset of assets) {
             let assetDir = asset[1].hash.substring(0, 2);
-            let destDir = `${constants.package.tmpPath}/${constants.package.assetsDir}/${assetDir}`;
+            let destDir = `${constants.package.tmpPath}/${constants.package.assetsDir}/objects/${assetDir}`;
             let downloadUrl = `${constants.api.assetsDownloadBaseUrl}/${assetDir}/${asset[1].hash}`;
 
             if (!fs.existsSync(destDir)) {
