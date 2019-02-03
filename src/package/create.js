@@ -5,19 +5,21 @@ const _ = require('lodash');
 const fetch = require('node-fetch');
 const tar = require('tar');
 const downloadClient = require('./downloadClient');
-const download = require('./download');
+const downloadFile = require('./downloadFile');
 const getNativesByVersionInfo = require('./getNativesByVersionInfo');
 const getLibrariesByVersionInfo = require('./getLibrariesByVersionInfo');
-const { createTmpDir, removeTmpDir } = require('./util/tmp');
+const unpackNatives = require('./unpackNatives');
+const { createTmpDir, removeTmpDir } = require('../util/tmp');
+const constants = require('../constants');
 
-module.exports = async function createPackage(version, platform) {
-    if (['linux', 'windows', 'osx'].indexOf(platform) === -1) {
-        console.error('Invalid platform.');
+module.exports = async function create(version, platform) {
+    if (!['linux', 'windows', 'osx'].includes(platform)) {
+        console.log('Invalid platform.');
         process.exit(1);
     }
 
     console.log('Load version data...');
-    let response = await fetch(global.api.versionsInfo);
+    let response = await fetch(constants.api.versionsInfo);
     let versions = await response.json();
     let versionData = Object.values(versions.versions).filter(item => item.id === version)[0];
 
@@ -31,13 +33,13 @@ module.exports = async function createPackage(version, platform) {
 
     createTmpDir();
 
-    fs.writeFileSync(`${global.package.tmpPath}/${version}.json`, JSON.stringify(versionData));
+    fs.writeFileSync(`${constants.package.tmpPath}/${version}.json`, JSON.stringify(versionData));
 
     console.log('Download client...');
     await downloadClient(versionData.downloads.client, version);
 
-    if (!fs.existsSync(`${global.package.tmpPath}/${global.package.librariesDir}`)) {
-        fs.mkdirSync(`${global.package.tmpPath}/${global.package.librariesDir}`);
+    if (!fs.existsSync(`${constants.package.tmpPath}/${constants.package.librariesDir}`)) {
+        fs.mkdirSync(`${constants.package.tmpPath}/${constants.package.librariesDir}`);
     }
 
     console.log('Download libraries...');
@@ -45,25 +47,31 @@ module.exports = async function createPackage(version, platform) {
         const libs = getLibrariesByVersionInfo(versionData.libraries, platform);
 
         for (const lib of libs) {
-            await download(lib.url, `${global.package.tmpPath}/${global.package.librariesDir}`, lib.size);
+            await downloadFile(lib.url, `${constants.package.tmpPath}/${constants.package.librariesDir}`, lib.size);
         }
 
         resolve();
     });
 
-    console.log('Download natives...');
+    console.log('Download and unpack natives...');
     await new Promise(async resolve => {
         const libs = getNativesByVersionInfo(versionData.libraries, platform);
 
         for (const lib of libs) {
-            await download(lib.url, `${global.package.tmpPath}/${global.package.librariesDir}`, lib.size);
+            await downloadFile(lib.url, `${constants.package.tmpPath}/${constants.package.librariesDir}`, lib.size);
         }
+
+        if (!fs.existsSync(`${constants.package.tmpPath}/${constants.package.nativesDir}`)) {
+            fs.mkdirSync(`${constants.package.tmpPath}/${constants.package.nativesDir}`);
+        }
+
+        await unpackNatives(libs);
 
         resolve();
     });
 
-    if (!fs.existsSync(`${global.package.tmpPath}/${global.package.assetsDir}`)) {
-        fs.mkdirSync(`${global.package.tmpPath}/${global.package.assetsDir}`);
+    if (!fs.existsSync(`${constants.package.tmpPath}/${constants.package.assetsDir}`)) {
+        fs.mkdirSync(`${constants.package.tmpPath}/${constants.package.assetsDir}`);
     }
 
     console.log('Download assets...');
@@ -74,34 +82,33 @@ module.exports = async function createPackage(version, platform) {
 
         for (const asset of assets) {
             let assetDir = asset[1].hash.substring(0, 2);
-            let destDir = `${global.package.tmpPath}/${global.package.assetsDir}/${assetDir}`;
-            let downloadUrl = `${global.api.assetsDownloadBaseUrl}/${assetDir}/${asset[1].hash}`;
+            let destDir = `${constants.package.tmpPath}/${constants.package.assetsDir}/${assetDir}`;
+            let downloadUrl = `${constants.api.assetsDownloadBaseUrl}/${assetDir}/${asset[1].hash}`;
 
             if (!fs.existsSync(destDir)) {
                 fs.mkdirSync(destDir);
             }
 
-            await download(downloadUrl, destDir, asset[1].size);
+            await downloadFile(downloadUrl, destDir, asset[1].size, _.last(asset[0].split('/')));
         }
 
         resolve();
     });
 
-    // todo: Создание папки natives и распаковка нужных либ туда (lwjgl).
-
     // todo: Построение команды для запуска игры для целевой ОС.
-    
+
     console.log(`Packaging ${version}...`);
     tar.c({
         gzip: true,
         sync: true,
-        file: `${global.package.outputPath}/${version}-${platform}.tar.gz`,
-        cwd: global.package.tmpPath,
+        file: `${constants.package.outputPath}/${version}-${platform}.tar.gz`,
+        cwd: constants.package.tmpPath,
     }, [
         `${version}.jar`,
         `${version}.json`,
-        global.package.librariesDir,
-        global.package.assetsDir,
+        constants.package.librariesDir,
+        constants.package.assetsDir,
+        constants.package.nativesDir,
     ]);
 
     removeTmpDir();

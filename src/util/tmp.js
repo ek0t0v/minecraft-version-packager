@@ -2,13 +2,14 @@
 
 const fs = require('fs');
 const rimraf = require('rimraf');
+const constants = require('../constants');
 
 module.exports.createTmpDir = function () {
-    if (!fs.existsSync(global.package.tmpPath)) {
-        fs.mkdirSync(global.package.tmpPath);
+    if (!fs.existsSync(constants.package.tmpPath)) {
+        fs.mkdirSync(constants.package.tmpPath);
     }
 };
 
 module.exports.removeTmpDir = function () {
-    rimraf.sync(global.package.tmpPath);
+    rimraf.sync(constants.package.tmpPath);
 };
